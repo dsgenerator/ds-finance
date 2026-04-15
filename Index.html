@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>DS Finance | Gestão de Contas a Pagar</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        /* ESTILOS IGUAIS AO ANTERIOR (MANTIDOS) */
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+        body { background: #f1f5f9; color: #0f172a; padding: 24px 20px; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+        .login-container, .app-container { max-width: 1400px; width: 100%; margin: 0 auto; background: white; border-radius: 32px; box-shadow: 0 20px 35px -12px rgba(0,0,0,0.1); overflow: hidden; }
+        .login-card { padding: 48px 40px; max-width: 460px; margin: 0 auto; text-align: center; background: white; }
+        .login-card .logo { font-size: 2.5rem; font-weight: 700; margin-bottom: 12px; color: #0f172a; }
+        .login-card .logo span { color: #2563eb; }
+        .login-card h2 { font-weight: 500; font-size: 1.2rem; color: #475569; margin-bottom: 32px; }
+        .input-group { text-align: left; margin-bottom: 20px; }
+        .input-group label { display: block; font-size: 0.85rem; font-weight: 500; color: #334155; margin-bottom: 6px; }
+        .input-group input { width: 100%; padding: 14px 16px; font-size: 1rem; border: 1px solid #cbd5e1; border-radius: 16px; background: #ffffff; transition: 0.2s; }
+        .input-group input:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+        .login-options { display: flex; justify-content: space-between; align-items: center; margin: 16px 0 28px; font-size: 0.85rem; }
+        .checkbox-label { display: flex; align-items: center; gap: 8px; cursor: pointer; color: #475569; }
+        .checkbox-label input { width: 16px; height: 16px; cursor: pointer; }
+        .forgot-link { color: #2563eb; text-decoration: none; font-weight: 500; }
+        .forgot-link:hover { text-decoration: underline; }
+        .login-btn { background: #2563eb; color: white; width: 100%; padding: 14px; font-size: 1rem; font-weight: 600; border: none; border-radius: 40px; cursor: pointer; transition: 0.2s; margin-bottom: 24px; }
+        .login-btn:hover { background: #1d4ed8; }
+        .demo-hint { font-size: 0.75rem; color: #64748b; background: #f8fafc; padding: 10px; border-radius: 20px; margin-top: 8px; }
+        .app-header { background: #0f172a; color: white; padding: 20px 32px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; }
+        .logo { font-weight: 700; font-size: 1.7rem; letter-spacing: -0.5px; }
+        .logo span { color: #38bdf8; }
+        .month-nav { display: flex; align-items: center; gap: 20px; background: #1e293b; padding: 8px 18px; border-radius: 60px; }
+        .month-nav button { background: none; border: none; color: #cbd5e1; font-size: 1.2rem; cursor: pointer; transition: 0.2s; }
+        .month-nav button:hover { color: white; }
+        .month-year { font-weight: 600; font-size: 1.2rem; min-width: 140px; text-align: center; }
+        .header-actions { display: flex; gap: 12px; }
+        .icon-btn { background: #334155; border: none; width: 40px; height: 40px; border-radius: 40px; color: white; font-size: 1.1rem; cursor: pointer; transition: 0.2s; }
+        .icon-btn:hover { background: #475569; }
+        .sync-fixas-btn { background: #0f766e; border: none; padding: 0 16px; border-radius: 40px; color: white; font-weight: 500; cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 8px; }
+        .sync-fixas-btn:hover { background: #0d5c56; }
+        .dashboard-top { display: flex; flex-wrap: wrap; gap: 20px; padding: 28px 32px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; }
+        .cards-group { flex: 2; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; }
+        .chart-group { flex: 1; min-width: 280px; background: white; border-radius: 24px; padding: 18px 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; }
+        .chart-group h3 { font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.5px; color: #475569; margin-bottom: 12px; }
+        canvas { max-height: 200px; width: 100%; }
+        .total-contas { font-weight: 700; margin-top: 10px; font-size: 0.9rem; color: #0f172a; text-align: center; }
+        .card-meta { background: white; border-radius: 24px; padding: 18px 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; }
+        .card-meta h3 { font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.5px; color: #475569; margin-bottom: 12px; }
+        .valor-principal { font-size: 1.9rem; font-weight: 700; margin: 8px 0; }
+        .meta-badge { display: inline-block; padding: 4px 12px; border-radius: 30px; font-size: 0.75rem; font-weight: 600; margin-top: 8px; }
+        .within { background: #dcfce7; color: #15803d; }
+        .attention { background: #fef9c3; color: #854d0e; }
+        .over-budget { background: #fee2e2; color: #b91c1c; }
+        .income-section { background: white; margin: 0 32px 20px 32px; padding: 20px 24px; border-radius: 28px; border: 1px solid #e2e8f0; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 15px; }
+        .income-label { font-weight: 600; color: #1e293b; }
+        .income-input { display: flex; gap: 12px; align-items: center; }
+        .income-input input { padding: 10px 16px; border: 1px solid #cbd5e1; border-radius: 40px; font-weight: 500; width: 160px; text-align: right; }
+        button { background: #0f172a; color: white; border: none; padding: 8px 18px; border-radius: 40px; font-weight: 500; cursor: pointer; transition: 0.2s; }
+        button.primary { background: #2563eb; }
+        button.primary:hover { background: #1d4ed8; }
+        .full-width { width: 100%; }
+        .btn-add { background: #059669; }
+        .btn-add:hover { background: #047857; }
+        .filters-bar { display: flex; justify-content: space-between; margin: 0 32px 20px 32px; flex-wrap: wrap; gap: 12px; }
+        .filters-group { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+        .filters-group select, .filters-group input { padding: 8px 14px; border-radius: 40px; border: 1px solid #cbd5e1; background: white; font-size: 0.85rem; }
+        .toggle-canceled { display: flex; align-items: center; gap: 6px; font-size: 0.85rem; color: #475569; }
+        .table-wrapper { overflow-x: auto; margin: 0 32px 32px 32px; border-radius: 20px; border: 1px solid #e2e8f0; background: white; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        th, td { padding: 14px 12px; text-align: left; border-bottom: 1px solid #eef2ff; }
+        th { background: #f1f5f9; font-weight: 600; cursor: pointer; user-select: none; }
+        th:hover { background: #e2e8f0; }
+        .status-badge { display: inline-block; padding: 4px 10px; border-radius: 30px; font-size: 0.7rem; font-weight: 600; }
+        .status-pago { background: #dcfce7; color: #166534; }
+        .status-pendente { background: #fff3cd; color: #856404; }
+        .status-atrasado { background: #ffe4e6; color: #be123c; }
+        .status-postergado { background: #e0f2fe; color: #0369a1; }
+        .status-cancelado { background: #e2e3e5; color: #383d41; }
+        .action-icons i { margin: 0 6px; cursor: pointer; font-size: 1.1rem; transition: 0.1s; }
+        .fa-check-circle { color: #15803d; }
+        .fa-calendar-alt { color: #eab308; }
+        .fa-edit { color: #3b82f6; }
+        .fa-trash-alt { color: #ef4444; }
+        .fa-ban { color: #6b7280; }
+        .action-icons i:hover { opacity: 0.7; }
+        .readonly-msg { background: #f1f5f9; padding: 8px 20px; border-radius: 40px; font-size: 0.8rem; color: #475569; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; }
+        .modal-content { background: white; max-width: 500px; width: 90%; border-radius: 28px; padding: 28px; box-shadow: 0 25px 40px rgba(0,0,0,0.2); }
+        .modal-content input, .modal-content select, .modal-content textarea { width: 100%; padding: 10px; margin: 8px 0 16px; border: 1px solid #ccc; border-radius: 16px; }
+        .form-group { margin-bottom: 12px; }
+        .modal-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 20px; }
+        @media (max-width: 700px) {
+            body { padding: 12px; }
+            .dashboard-top { flex-direction: column; padding: 20px; }
+            .income-section { margin: 0 16px 20px 16px; flex-direction: column; align-items: stretch; }
+            .table-wrapper { margin: 0 16px 20px 16px; }
+            .filters-bar { margin: 0 16px 20px 16px; flex-direction: column; }
+            .filters-group { flex-wrap: wrap; }
+            .login-card { padding: 32px 24px; }
+        }
+    </style>
+</head>
+<body>
+<div id="loginContainer" class="login-container">
+    <div class="login-card">
+        <div class="logo">DS <span>Finance</span></div>
+        <h2>Acesse sua conta</h2>
+        <div class="input-group"><label>Usuário</label><input type="text" id="loginUser" placeholder="Digite seu usuário"></div>
+        <div class="input-group"><label>Senha</label><input type="password" id="loginPass" placeholder="••••••"></div>
+        <div class="login-options">
+            <label class="checkbox-label"><input type="checkbox" id="rememberMeCheckbox"> Lembrar de mim</label>
+            <a href="#" id="forgotPasswordLink" class="forgot-link">Esqueci minha senha</a>
+        </div>
+        <button id="btnLogin" class="login-btn">Entrar</button>
+        <div class="demo-hint"><i class="fas fa-info-circle"></i> Demo: admin / admin123</div>
+    </div>
+</div>
+
+<div id="appContainer" class="app-container" style="display: none;">
+    <header class="app-header">
+        <div class="logo">DS <span>Finance</span></div>
+        <div class="month-nav">
+            <button id="prevMonthBtn"><i class="fas fa-chevron-left"></i></button>
+            <span class="month-year" id="monthYearDisplay">Janeiro 2025</span>
+            <button id="nextMonthBtn"><i class="fas fa-chevron-right"></i></button>
+        </div>
+        <div class="header-actions">
+            <button id="syncFixasBtn" class="sync-fixas-btn"><i class="fas fa-sync-alt"></i> Fixar</button>
+            <button id="settingsBtn" class="icon-btn"><i class="fas fa-cog"></i></button>
+            <button id="logoutBtn" class="icon-btn logout"><i class="fas fa-sign-out-alt"></i></button>
+        </div>
+    </header>
+
+    <div class="dashboard-top">
+        <div class="cards-group" id="cardsGroup"></div>
+        <div class="chart-group">
+            <h3><i class="fas fa-chart-pie"></i> Gastos por Categoria</h3>
+            <canvas id="categoryChart" width="400" height="200"></canvas>
+            <div id="totalContasMes" class="total-contas"></div>
+        </div>
+    </div>
+
+    <div class="income-section">
+        <div class="income-label"><i class="fas fa-coins"></i> Receita Líquida do mês</div>
+        <div class="income-input"><input type="text" id="monthlyIncome" placeholder="R$ 0,00"><button id="saveIncomeBtn" class="primary">Salvar</button></div>
+        <div id="readonlyIncomeMsg" class="readonly-msg"></div>
+    </div>
+
+    <div class="filters-bar">
+        <div class="filters-group">
+            <select id="filterStatus"><option value="all">Todos os status</option><option value="Pendente">Pendente</option><option value="Pago">Pago</option><option value="Atrasado">Atrasado</option><option value="Postergado">Postergado</option><option value="Cancelado">Cancelado</option></select>
+            <select id="filterCategory"><option value="all">Todas as categorias</option></select>
+            <select id="filterGroup"><option value="all">Todos os grupos</option><option value="Essencial">Essencial</option><option value="Desejo">Desejo</option><option value="Investimento">Investimento</option></select>
+            <select id="filterAccount"><option value="all">Todas as contas</option></select>
+            <input type="text" id="searchDesc" placeholder="Buscar por descrição...">
+            <label class="toggle-canceled"><input type="checkbox" id="showCanceled"> Mostrar cancelados</label>
+        </div>
+        <button id="openAddAccountBtn" class="btn-add"><i class="fas fa-plus"></i> Nova conta</button>
+    </div>
+
+    <div class="table-wrapper">
+        <table id="accountsTable">
+            <thead><tr><th>Conta</th><th>Descrição</th><th>Categoria</th><th>Grupo</th><th id="sortDueHeader">Vencimento <i class="fas fa-sort"></i></th><th>Valor (R$)</th><th>Status</th><th>Ações</th></tr></thead>
+            <tbody id="tableBody"></tbody>
+        </table>
+    </div>
+</div>
+
+<div id="genericModal" class="modal"><div class="modal-content"><h3 id="modalTitle"></h3><div id="modalFields"></div><div class="modal-actions"><button id="modalCancelBtn">Cancelar</button><button id="modalConfirmBtn" class="primary">Confirmar</button></div></div></div>
+
+<script>
+    // ===================== CONFIGURAÇÕES =====================
+    let currentYear = new Date().getFullYear();
+    let currentMonth = new Date().getMonth();
+    let financeData = {};
+    let settings = {
+        categories: ["Alimentação", "Transporte", "Lazer", "Educação", "Saúde", "Moradia", "Outros"],
+        accounts: ["c/c Nubank", "c/c Itaú", "c/c Caixa", "Card Nubank", "Card Itaú"],
+        credentials: { username: "admin", password: "admin123" }
+    };
+    let isReadOnly = false;
+    let currentFilters = { status: "all", category: "all", group: "all", account: "all", search: "", showCanceled: false };
+    let sortOrder = "asc";
+    let chartInstance = null;
+
+    // ===================== FUNÇÕES AUXILIARES =====================
+    function getMonthKey(year, month) { return `${year}-${String(month+1).padStart(2,'0')}`; }
+    function saveFinanceData() { localStorage.setItem("ds_finance_data", JSON.stringify(financeData)); }
+    function saveSettings() { localStorage.setItem("ds_finance_settings", JSON.stringify(settings)); }
+    
+    // Função para corrigir contas antigas e forçar recorrência
+    function syncAndFixFixedAccounts() {
+        let corrigidas = 0, copiadas = 0;
+        for (let key in financeData) {
+            if (financeData[key]?.accounts) {
+                financeData[key].accounts.forEach(acc => {
+                    if (acc.tipo !== "Parcelado") { acc.tipo = "Fixo"; corrigidas++; }
+                });
+            }
+        }
+        const currentKey = getMonthKey(currentYear, currentMonth);
+        const currentDate = new Date(currentYear, currentMonth, 1);
+        let fixedToCopy = [];
+        for (let key in financeData) {
+            const [year, month] = key.split('-').map(Number);
+            const monthDate = new Date(year, month-1, 1);
+            if (monthDate < currentDate) {
+                const monthData = financeData[key];
+                if (monthData?.accounts) {
+                    monthData.accounts.forEach(acc => {
+                        if (acc.tipo === "Fixo" && acc.status !== "Cancelado") {
+                            const already = financeData[currentKey]?.accounts.some(ex => ex.tipo === "Fixo" && ex.descricao === acc.descricao && ex.conta === acc.conta && ex.valor === acc.valor);
+                            if (!already) fixedToCopy.push(acc);
+                        }
+                    });
+                }
+            }
+        }
+        if (fixedToCopy.length > 0) {
+            if (!financeData[currentKey]) financeData[currentKey] = { income: 0, accounts: [] };
+            fixedToCopy.forEach(orig => {
+                let dueDate = new Date(currentYear, currentMonth, 1);
+                const origDay = new Date(orig.vencimento).getDate();
+                let newDay = Math.min(origDay, new Date(currentYear, currentMonth+1, 0).getDate());
+                dueDate.setDate(newDay);
+                const newDueDate = dueDate.toISOString().slice(0,10);
+                financeData[currentKey].accounts.push({
+                    id: Date.now() + Math.random(),
+                    conta: orig.conta, descricao: orig.descricao, categoria: orig.categoria, grupo: orig.grupo,
+                    vencimento: newDueDate, valor: orig.valor, tipo: "Fixo", parcela: null, status: "Pendente"
+                });
+                copiadas++;
+            });
+        }
+        saveFinanceData();
+        alert(`✅ Corrigidas: ${corrigidas} contas.\n📋 Copiadas: ${copiadas} fixas.`);
+        refreshUI();
+    }
+
+    function loadData() {
+        const storedFinance = localStorage.getItem("ds_finance_data");
+        if (storedFinance) financeData = JSON.parse(storedFinance);
+        else { financeData = {}; const curKey = getMonthKey(currentYear, currentMonth); financeData[curKey] = { income: 0, accounts: [] }; saveFinanceData(); }
+        for (let key in financeData) {
+            if (financeData[key]?.accounts) {
+                financeData[key].accounts.forEach(acc => { if (acc.tipo === undefined) acc.tipo = acc.parcela ? "Parcelado" : "Fixo"; });
+            }
+        }
+        const storedSettings = localStorage.getItem("ds_finance_settings");
+        if (storedSettings) settings = JSON.parse(storedSettings);
+        else saveSettings();
+        updateCategoryFilter();
+        updateAccountFilter();
+        ensureFixedRecurrence();
+    }
+    
+    function updateCategoryFilter() {
+        const catSelect = document.getElementById("filterCategory");
+        if (!catSelect) return;
+        const currentVal = catSelect.value;
+        catSelect.innerHTML = '<option value="all">Todas as categorias</option>';
+        settings.categories.forEach(cat => { const opt = document.createElement("option"); opt.value = cat; opt.textContent = cat; catSelect.appendChild(opt); });
+        catSelect.value = currentVal;
+    }
+    function updateAccountFilter() {
+        const accSelect = document.getElementById("filterAccount");
+        if (!accSelect) return;
+        const currentVal = accSelect.value;
+        accSelect.innerHTML = '<option value="all">Todas as contas</option>';
+        settings.accounts.forEach(acc => { const opt = document.createElement("option"); opt.value = acc; opt.textContent = acc; accSelect.appendChild(opt); });
+        accSelect.value = currentVal;
+    }
+    function formatMoney(value) { return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); }
+    function parseMoney(str) { let cleaned = str.replace(/[^\d,-]/g, '').replace(',', '.'); let num = parseFloat(cleaned); return isNaN(num) ? 0 : num; }
+    function applyMoneyMask(input) {
+        input.addEventListener('input', function(e) {
+            let value = e.target.value.replace(/\D/g, '');
+            if (value === '') value = '0';
+            let number = (parseInt(value) / 100).toFixed(2);
+            e.target.value = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(number);
+        });
+    }
+
+    // ===================== RECORRÊNCIA PARA CONTAS FIXAS =====================
+    function ensureFixedRecurrence() {
+        const currentKey = getMonthKey(currentYear, currentMonth);
+        const currentDate = new Date(currentYear, currentMonth, 1);
+        let fixedToCopy = [];
+        for (let key in financeData) {
+            const [year, month] = key.split('-').map(Number);
+            const monthDate = new Date(year, month-1, 1);
+            if (monthDate < currentDate) {
+                const monthData = financeData[key];
+                if (monthData?.accounts) {
+                    monthData.accounts.forEach(acc => {
+                        if (acc.tipo === "Fixo" && acc.status !== "Cancelado") {
+                            const already = financeData[currentKey]?.accounts.some(ex => ex.tipo === "Fixo" && ex.descricao === acc.descricao && ex.conta === acc.conta && ex.valor === acc.valor);
+                            if (!already) fixedToCopy.push(acc);
+                        }
+                    });
+                }
+            }
+        }
+        if (fixedToCopy.length > 0 && !isReadOnly) {
+            if (!financeData[currentKey]) financeData[currentKey] = { income: 0, accounts: [] };
+            fixedToCopy.forEach(orig => {
+                let dueDate = new Date(currentYear, currentMonth, 1);
+                const origDay = new Date(orig.vencimento).getDate();
+                let newDay = Math.min(origDay, new Date(currentYear, currentMonth+1, 0).getDate());
+                dueDate.setDate(newDay);
+                const newDueDate = dueDate.toISOString().slice(0,10);
+                financeData[currentKey].accounts.push({
+                    id: Date.now() + Math.random(),
+                    conta: orig.conta, descricao: orig.descricao, categoria: orig.categoria, grupo: orig.grupo,
+                    vencimento: newDueDate, valor: orig.valor, tipo: "Fixo", parcela: null, status: "Pendente"
+                });
+            });
+            saveFinanceData();
+        }
+    }
+
+    // ===================== STATUS E ATRASADOS =====================
+    function updateOverdueStatus() {
+        const today = new Date(); today.setHours(0,0,0,0);
+        const key = getMonthKey(currentYear, currentMonth);
+        if (financeData[key]) {
+            financeData[key].accounts.forEach(acc => {
+                if (acc.status !== "Pago" && acc.status !== "Cancelado") {
+                    const dueDate = new Date(acc.vencimento);
+                    if (dueDate < today) acc.status = "Atrasado";
+                    else if (acc.status === "Atrasado" && dueDate >= today) acc.status = "Pendente";
+                }
+            });
+            saveFinanceData();
+        }
+    }
+    function getDisplayAccounts() {
+        const currentKey = getMonthKey(currentYear, currentMonth);
+        const currentMonthData = financeData[currentKey] || { accounts: [] };
+        let accounts = [...currentMonthData.accounts];
+        const currentDate = new Date(currentYear, currentMonth, 1);
+        for (let key in financeData) {
+            const [year, month] = key.split('-').map(Number);
+            const monthDate = new Date(year, month-1, 1);
+            if (monthDate < currentDate) {
+                const prevMonthData = financeData[key];
+                if (prevMonthData && prevMonthData.accounts) {
+                    prevMonthData.accounts.forEach(acc => {
+                        if (acc.status !== "Pago" && acc.status !== "Cancelado") {
+                            const copy = { ...acc, status: "Atrasado", readOnly: true };
+                            accounts.push(copy);
+                        }
+                    });
+                }
+            }
+        }
+        let filtered = accounts.filter(acc => {
+            if (!currentFilters.showCanceled && acc.status === "Cancelado") return false;
+            if (currentFilters.status !== "all" && acc.status !== currentFilters.status) return false;
+            if (currentFilters.category !== "all" && acc.categoria !== currentFilters.category) return false;
+            if (currentFilters.group !== "all" && acc.grupo !== currentFilters.group) return false;
+            if (currentFilters.account !== "all" && acc.conta !== currentFilters.account) return false;
+            if (currentFilters.search && !acc.descricao.toLowerCase().includes(currentFilters.search.toLowerCase())) return false;
+            return true;
+        });
+        filtered.sort((a,b) => { const da = new Date(a.vencimento), db = new Date(b.vencimento); return sortOrder === "asc" ? da - db : db - da; });
+        return filtered;
+    }
+
+    // ===================== DASHBOARD =====================
+    function renderDashboard() {
+        const key = getMonthKey(currentYear, currentMonth);
+        const monthData = financeData[key] || { income: 0, accounts: [] };
+        const income = monthData.income;
+        const accounts = monthData.accounts;
+        let gastoEssencial = 0, gastoDesejo = 0, gastoInvest = 0;
+        accounts.forEach(acc => {
+            if (acc.status === "Cancelado") return;
+            let valor = acc.valor;
+            if (acc.status === "Pago" && acc.valorPago) valor = acc.valorPago;
+            if (acc.grupo === "Essencial") gastoEssencial += valor;
+            else if (acc.grupo === "Desejo") gastoDesejo += valor;
+            else if (acc.grupo === "Investimento") gastoInvest += valor;
+        });
+        const metaEssencial = income * 0.5, metaDesejo = income * 0.3, metaInvest = income * 0.2;
+        const getStatusClass = (gasto, meta) => { if (meta===0) return gasto===0?"within":"over-budget"; const p = gasto/meta; if(p<=1) return "within"; if(p<=1.2) return "attention"; return "over-budget"; };
+        const getStatusText = (gasto, meta) => { if(meta===0) return gasto===0?"Dentro":"Estourado"; const p=gasto/meta; if(p<=1) return "✅ Dentro"; if(p<=1.2) return "⚠️ Atenção"; return "❌ Estourado"; };
+        document.getElementById("cardsGroup").innerHTML = `
+            <div class="card-meta"><h3>🟢 Essencial (50%)</h3><div class="valor-principal">${formatMoney(gastoEssencial)}</div><div>Meta: ${formatMoney(metaEssencial)}</div><span class="meta-badge ${getStatusClass(gastoEssencial, metaEssencial)}">${getStatusText(gastoEssencial, metaEssencial)}</span></div>
+            <div class="card-meta"><h3>🎯 Desejos (30%)</h3><div class="valor-principal">${formatMoney(gastoDesejo)}</div><div>Meta: ${formatMoney(metaDesejo)}</div><span class="meta-badge ${getStatusClass(gastoDesejo, metaDesejo)}">${getStatusText(gastoDesejo, metaDesejo)}</span></div>
+            <div class="card-meta"><h3>📈 Investimentos (20%)</h3><div class="valor-principal">${formatMoney(gastoInvest)}</div><div>Meta: ${formatMoney(metaInvest)}</div><span class="meta-badge ${getStatusClass(gastoInvest, metaInvest)}">${getStatusText(gastoInvest, metaInvest)}</span></div>
+            <div class="card-meta"><h3>💰 Receita Líquida</h3><div class="valor-principal">${formatMoney(income)}</div><div>Total comprometido: ${formatMoney(gastoEssencial+gastoDesejo+gastoInvest)}</div></div>
+        `;
+    }
+    function renderCategoryChart() {
+        const key = getMonthKey(currentYear, currentMonth);
+        const monthData = financeData[key] || { income: 0, accounts: [] };
+        const accounts = monthData.accounts.filter(acc => acc.status !== "Cancelado");
+        const map = new Map();
+        accounts.forEach(acc => { let valor = acc.valor; if(acc.status==="Pago" && acc.valorPago) valor=acc.valorPago; const cat=acc.categoria||"Sem categoria"; map.set(cat, (map.get(cat)||0)+valor); });
+        const ctx = document.getElementById('categoryChart').getContext('2d');
+        if(chartInstance) chartInstance.destroy();
+        chartInstance = new Chart(ctx, { type:'pie', data:{ labels:Array.from(map.keys()), datasets:[{ data:Array.from(map.values()), backgroundColor:['#3b82f6','#ef4444','#10b981','#f59e0b','#8b5cf6','#ec489a','#06b6d4','#84cc16'], borderWidth:1 }] }, options:{ responsive:true, maintainAspectRatio:true, plugins:{ legend:{ position:'bottom', labels:{ font:{ size:10 } } } } } });
+    }
+    function renderTotalContasMes() {
+        const key = getMonthKey(currentYear, currentMonth);
+        const monthData = financeData[key] || { income: 0, accounts: [] };
+        let total = 0;
+        monthData.accounts.forEach(acc => { if(acc.status !== "Cancelado" && acc.status !== "Pago") total += acc.valor; });
+        document.getElementById("totalContasMes").innerHTML = `<i class="fas fa-credit-card"></i> Total a pagar no mês: ${formatMoney(total)}`;
+    }
+
+    // ===================== RENDERIZAÇÃO TABELA =====================
+    function renderTable() {
+        const accounts = getDisplayAccounts();
+        const tbody = document.getElementById("tableBody");
+        tbody.innerHTML = "";
+        accounts.forEach((acc, idx) => {
+            const row = tbody.insertRow();
+            const statusClass = `status-${acc.status.toLowerCase()}`;
+            const valorExib = acc.status === "Pago" && acc.valorPago ? acc.valorPago : acc.valor;
+            const isReadOnlyRow = acc.readOnly || isReadOnly;
+            row.innerHTML = `
+                <td>${acc.conta}</td><td>${acc.descricao} ${acc.parcela ? ` (${acc.parcela})` : ''}</td><td>${acc.categoria}</td><td>${acc.grupo}</td><td>${new Date(acc.vencimento).toLocaleDateString('pt-BR')}</td><td>${formatMoney(valorExib)}</td>
+                <td><span class="status-badge ${statusClass}">${acc.status}</span></td>
+                <td class="action-icons">
+                    ${!isReadOnlyRow && acc.status !== "Pago" && acc.status !== "Cancelado" ? `<i class="fas fa-check-circle" data-action="pagar" data-idx="${idx}" title="Pagar"></i>` : ''}
+                    ${!isReadOnlyRow && acc.status !== "Cancelado" ? `<i class="fas fa-calendar-alt" data-action="postergar" data-idx="${idx}" title="Postergar"></i>` : ''}
+                    ${!isReadOnlyRow ? `<i class="fas fa-edit" data-action="editar" data-idx="${idx}" title="Editar"></i>` : ''}
+                    ${!isReadOnlyRow ? `<i class="fas fa-trash-alt" data-action="excluir" data-idx="${idx}" title="Excluir"></i>` : ''}
+                    ${!isReadOnlyRow && acc.status !== "Cancelado" ? `<i class="fas fa-ban" data-action="cancelar" data-idx="${idx}" title="Cancelar"></i>` : ''}
+                </td>
+            `;
+        });
+        document.querySelectorAll('.action-icons i').forEach(icon => {
+            icon.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const action = icon.getAttribute('data-action');
+                const idx = parseInt(icon.getAttribute('data-idx'));
+                const acc = getDisplayAccounts()[idx];
+                if(!acc) return;
+                if(action === 'pagar') handlePay(acc);
+                else if(action === 'postergar') handlePostpone(acc);
+                else if(action === 'editar') handleEdit(acc);
+                else if(action === 'excluir') handleDelete(acc);
+                else if(action === 'cancelar') handleCancel(acc);
+            });
+        });
+    }
+
+    // ===================== AÇÕES (COM CORREÇÃO NA EXCLUSÃO) =====================
+    function handlePay(acc) { openModal("Pagar conta", `<div class="form-group"><label>Valor pago (R$)</label><input type="text" id="payValue" value="${formatMoney(acc.valor)}" class="money-input"></div>`, () => { let newValor = parseMoney(document.getElementById("payValue").value); if(!isNaN(newValor) && newValor>0){ updateAccountField(acc, {status:"Pago", valorPago:newValor}); refreshUI(); } else alert("Valor inválido"); }); }
+    function handlePostpone(acc) { openModal("Postergar conta", `<div class="form-group"><label>Nova data de vencimento</label><input type="date" id="newDueDate" value="${acc.vencimento}"></div>`, () => { let newDate = document.getElementById("newDueDate").value; if(newDate) updateAccountField(acc, {vencimento:newDate, status:"Postergado"}); refreshUI(); }); }
+    function handleEdit(acc) {
+        const grupos = ["Essencial","Desejo","Investimento"];
+        const groupsOpt = grupos.map(g=>`<option value="${g}" ${acc.grupo===g?'selected':''}>${g}</option>`).join('');
+        const accountsOpt = settings.accounts.map(a=>`<option value="${a}" ${acc.conta===a?'selected':''}>${a}</option>`).join('');
+        const categoriasOpt = settings.categories.map(c=>`<option value="${c}" ${acc.categoria===c?'selected':''}>${c}</option>`).join('');
+        openModal("Editar conta", `
+            <div class="form-group"><label>Conta</label><select id="editConta">${accountsOpt}</select></div>
+            <div class="form-group"><label>Descrição</label><input id="editDesc" value="${acc.descricao}"></div>
+            <div class="form-group"><label>Categoria</label><input id="editCategoria" list="catList" value="${acc.categoria}"><datalist id="catList">${settings.categories.map(c=>`<option>${c}</option>`).join('')}</datalist></div>
+            <div class="form-group"><label>Grupo</label><select id="editGrupo">${groupsOpt}</select></div>
+            <div class="form-group"><label>Vencimento</label><input type="date" id="editDueDate" value="${acc.vencimento}"></div>
+            <div class="form-group"><label>Valor (R$)</label><input type="text" id="editValor" value="${formatMoney(acc.valor)}" class="money-input"></div>
+        `, () => {
+            let newConta = document.getElementById("editConta").value, newDesc = document.getElementById("editDesc").value, newCategoria = document.getElementById("editCategoria").value, newGrupo = document.getElementById("editGrupo").value, newDueDate = document.getElementById("editDueDate").value, newValor = parseMoney(document.getElementById("editValor").value);
+            if(!newDesc||!newDueDate||isNaN(newValor)){ alert("Preencha todos os campos."); return; }
+            updateAccountField(acc, {conta:newConta, descricao:newDesc, categoria:newCategoria, grupo:newGrupo, vencimento:newDueDate, valor:newValor});
+            refreshUI();
+        });
+    }
+    
+    // CORREÇÃO DA EXCLUSÃO: trata contas readOnly e busca por ID em todos os meses
+    function handleDelete(acc) {
+        if (acc.readOnly) {
+            alert("Esta conta é de um mês anterior e está sendo exibida apenas para referência. Para excluí-la permanentemente, vá até o mês original onde ela foi lançada.");
+            return;
+        }
+        if (confirm("Excluir permanentemente esta conta?")) {
+            let found = false;
+            for (let key in financeData) {
+                const index = financeData[key].accounts.findIndex(a => a.id === acc.id);
+                if (index !== -1) {
+                    financeData[key].accounts.splice(index, 1);
+                    found = true;
+                    break;
+                }
+            }
+            if (found) {
+                saveFinanceData();
+                refreshUI();
+                alert("Conta excluída com sucesso.");
+            } else {
+                alert("Erro: conta não encontrada. Tente recarregar a página.");
+            }
+        }
+    }
+    
+    function handleCancel(acc) { if(confirm("Cancelar conta?")) updateAccountField(acc, {status:"Cancelado"}); refreshUI(); }
+
+    function updateAccountField(acc, updates) {
+        const dueDate = new Date(acc.vencimento);
+        const monthKey = getMonthKey(dueDate.getFullYear(), dueDate.getMonth());
+        if (financeData[monthKey]) {
+            const original = financeData[monthKey].accounts.find(a => a.id === acc.id);
+            if (original) Object.assign(original, updates);
+        } else {
+            for (let key in financeData) {
+                const found = financeData[key].accounts.find(a => a.id === acc.id);
+                if (found) { Object.assign(found, updates); break; }
+            }
+        }
+        saveFinanceData();
+    }
+
+    // ===================== ADICIONAR NOVA CONTA (SALVA NO MÊS DO VENCIMENTO) =====================
+    function addNewAccount() {
+        if(isReadOnly){ alert("Mês passado não permite edição."); return; }
+        const groupsOpt = ["Essencial","Desejo","Investimento"].map(g=>`<option value="${g}">${g}</option>`).join('');
+        const accountsOpt = settings.accounts.map(a=>`<option value="${a}">${a}</option>`).join('');
+        const categoriesOpt = settings.categories.map(c=>`<option>${c}</option>`).join('');
+        openModal("Nova conta", `
+            <div class="form-group"><label>Conta</label><select id="newConta">${accountsOpt}</select></div>
+            <div class="form-group"><label>Descrição</label><input id="newDesc" placeholder="Ex: Supermercado"></div>
+            <div class="form-group"><label>Categoria</label><input id="newCategoria" list="catList"><datalist id="catList">${categoriesOpt}</datalist></div>
+            <div class="form-group"><label>Grupo</label><select id="newGrupo">${groupsOpt}</select></div>
+            <div class="form-group"><label>Vencimento</label><input type="date" id="newDueDate"></div>
+            <div class="form-group"><label>Valor (R$)</label><input type="text" id="newValor" class="money-input"></div>
+            <div class="form-group"><label>Tipo</label><select id="newTipo"><option value="Fixo">Fixo</option><option value="Variável">Variável</option><option value="Parcelado">Parcelado</option></select></div>
+            <div id="parcelasDiv" style="display:none"><label>Nº Parcelas</label><input type="number" id="numParcelas" min="2" max="24" value="3"></div>
+        `, () => {
+            const conta = document.getElementById("newConta").value;
+            const desc = document.getElementById("newDesc").value;
+            const categoria = document.getElementById("newCategoria").value || "Geral";
+            const grupo = document.getElementById("newGrupo").value;
+            const vencimento = document.getElementById("newDueDate").value;
+            const valor = parseMoney(document.getElementById("newValor").value);
+            const tipo = document.getElementById("newTipo").value;
+            if(!desc || !vencimento || isNaN(valor) || valor<=0) { alert("Preencha todos os campos."); return; }
+            
+            // Determinar o mês alvo baseado na data de vencimento
+            const dueDate = new Date(vencimento);
+            const targetYear = dueDate.getFullYear();
+            const targetMonth = dueDate.getMonth();
+            const targetKey = getMonthKey(targetYear, targetMonth);
+            
+            if (tipo === "Parcelado") {
+                const numParcelas = parseInt(document.getElementById("numParcelas").value);
+                if (numParcelas > 1) {
+                    const valorParcela = valor / numParcelas;
+                    for (let i = 0; i < numParcelas; i++) {
+                        const parcelaDue = new Date(targetYear, targetMonth + i, dueDate.getDate());
+                        const parcelaYear = parcelaDue.getFullYear();
+                        const parcelaMonth = parcelaDue.getMonth();
+                        const parcelaKey = getMonthKey(parcelaYear, parcelaMonth);
+                        const parcelaStr = `${i+1}/${numParcelas}`;
+                        if (!financeData[parcelaKey]) financeData[parcelaKey] = { income: 0, accounts: [] };
+                        financeData[parcelaKey].accounts.push({
+                            id: Date.now() + Math.random() + i,
+                            conta, descricao: desc, categoria, grupo,
+                            vencimento: parcelaDue.toISOString().slice(0,10),
+                            valor: valorParcela, tipo, parcela: parcelaStr, status: "Pendente"
+                        });
+                    }
+                    saveFinanceData(); refreshUI(); return;
+                }
+            }
+            // Conta simples (Fixo ou Variável): salva no mês do vencimento
+            if (!financeData[targetKey]) financeData[targetKey] = { income: 0, accounts: [] };
+            financeData[targetKey].accounts.push({
+                id: Date.now(),
+                conta, descricao: desc, categoria, grupo,
+                vencimento, valor, tipo, parcela: null, status: "Pendente"
+            });
+            saveFinanceData();
+            refreshUI();
+        });
+        const tipoSelect = document.getElementById("newTipo");
+        const parcelasDiv = document.getElementById("parcelasDiv");
+        if(tipoSelect && parcelasDiv) tipoSelect.addEventListener('change', () => parcelasDiv.style.display = tipoSelect.value === "Parcelado" ? "block" : "none");
+        const valorInput = document.getElementById("newValor");
+        if(valorInput) applyMoneyMask(valorInput);
+    }
+
+    // ===================== CONFIGURAÇÕES =====================
+    function openSettings() {
+        openModal("Configurações", `
+            <div class="form-group"><label>Categorias (uma por linha)</label><textarea id="editCategories" rows="4">${settings.categories.join('\n')}</textarea></div>
+            <div class="form-group"><label>Contas (uma por linha)</label><textarea id="editAccounts" rows="4">${settings.accounts.join('\n')}</textarea></div>
+            <div class="form-group"><label>Novo usuário</label><input type="text" id="newUsername" value="${settings.credentials.username}"></div>
+            <div class="form-group"><label>Nova senha</label><input type="password" id="newPassword" value="${settings.credentials.password}"></div>
+        `, () => {
+            const newCats = document.getElementById("editCategories").value.split('\n').filter(c=>c.trim());
+            const newAccs = document.getElementById("editAccounts").value.split('\n').filter(a=>a.trim());
+            const newUser = document.getElementById("newUsername").value.trim();
+            const newPass = document.getElementById("newPassword").value.trim();
+            if(newCats.length) settings.categories = newCats;
+            if(newAccs.length) settings.accounts = newAccs;
+            if(newUser && newPass) settings.credentials = { username: newUser, password: newPass };
+            saveSettings();
+            updateCategoryFilter();
+            updateAccountFilter();
+            refreshUI();
+            alert("Configurações salvas!");
+        });
+    }
+
+    // ===================== RECEITA =====================
+    function updateIncome() { const key=getMonthKey(currentYear,currentMonth); let val=parseMoney(document.getElementById("monthlyIncome").value); if(isNaN(val)) val=0; if(!financeData[key]) financeData[key]={income:val, accounts:[]}; else financeData[key].income=val; saveFinanceData(); refreshUI(); }
+    function loadIncomeToInput() { document.getElementById("monthlyIncome").value = formatMoney(financeData[getMonthKey(currentYear,currentMonth)]?.income || 0); }
+
+    // ===================== MÊS =====================
+    function updateReadOnlyStatus() {
+        const now=new Date(), selected=new Date(currentYear,currentMonth,1), currentDate=new Date(now.getFullYear(),now.getMonth(),1);
+        isReadOnly = selected < currentDate;
+        const inc=document.getElementById("monthlyIncome"), saveInc=document.getElementById("saveIncomeBtn"), addBtn=document.getElementById("openAddAccountBtn");
+        if(isReadOnly) { inc.disabled=true; saveInc.disabled=true; addBtn.disabled=true; document.getElementById("readonlyIncomeMsg").innerHTML='<i class="fas fa-lock"></i> Mês passado — apenas visualização'; }
+        else { inc.disabled=false; saveInc.disabled=false; addBtn.disabled=false; document.getElementById("readonlyIncomeMsg").innerHTML=''; }
+    }
+    function refreshUI() {
+        ensureFixedRecurrence();
+        updateOverdueStatus();
+        loadIncomeToInput();
+        renderDashboard();
+        renderCategoryChart();
+        renderTotalContasMes();
+        renderTable();
+        updateReadOnlyStatus();
+        document.getElementById("monthYearDisplay").innerText = new Date(currentYear,currentMonth).toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+    }
+    function changeMonth(delta) {
+        let newMonth=currentMonth+delta, newYear=currentYear;
+        if(newMonth<0){ newMonth=11; newYear--; }
+        if(newMonth>11){ newMonth=0; newYear++; }
+        currentYear=newYear; currentMonth=newMonth;
+        refreshUI();
+    }
+
+    // ===================== LOGIN =====================
+    function login() {
+        const user=document.getElementById("loginUser").value, pass=document.getElementById("loginPass").value, rem=document.getElementById("rememberMeCheckbox");
+        if(user===settings.credentials.username && pass===settings.credentials.password) {
+            sessionStorage.setItem("ds_finance_logged","true");
+            if(rem.checked) localStorage.setItem("ds_finance_remembered_user",user);
+            else localStorage.removeItem("ds_finance_remembered_user");
+            document.getElementById("loginContainer").style.display="none";
+            document.getElementById("appContainer").style.display="block";
+            loadData(); refreshUI();
+        } else alert("Usuário ou senha inválidos");
+    }
+    function logout() { sessionStorage.removeItem("ds_finance_logged"); document.getElementById("loginContainer").style.display="block"; document.getElementById("appContainer").style.display="none"; }
+    function loadRememberedUser() { let saved=localStorage.getItem("ds_finance_remembered_user"); if(saved){ document.getElementById("loginUser").value=saved; document.getElementById("rememberMeCheckbox").checked=true; } }
+    function setupForgotPassword() { document.getElementById("forgotPasswordLink")?.addEventListener("click",(e)=>{ e.preventDefault(); alert("Redefinição de senha: contate o administrador.\nDemo: admin/admin123"); }); }
+
+    // ===================== ORDENAÇÃO E FILTROS =====================
+    function toggleSort() { sortOrder=sortOrder==="asc"?"desc":"asc"; renderTable(); let icon=document.querySelector("#sortDueHeader i"); if(icon) icon.className=sortOrder==="asc"?"fas fa-sort-up":"fas fa-sort-down"; }
+    function applyFilters() { currentFilters.status=document.getElementById("filterStatus").value; currentFilters.category=document.getElementById("filterCategory").value; currentFilters.group=document.getElementById("filterGroup").value; currentFilters.account=document.getElementById("filterAccount").value; currentFilters.search=document.getElementById("searchDesc").value; currentFilters.showCanceled=document.getElementById("showCanceled").checked; renderTable(); }
+
+    // ===================== MODAL =====================
+    let modalConfirmCallback=null;
+    function openModal(title,fieldsHtml,onConfirm) { let modal=document.getElementById("genericModal"); document.getElementById("modalTitle").innerText=title; document.getElementById("modalFields").innerHTML=fieldsHtml; modal.style.display="flex"; modalConfirmCallback=onConfirm; document.querySelectorAll('.money-input').forEach(i=>applyMoneyMask(i)); }
+    document.getElementById("modalCancelBtn").onclick=()=>{ document.getElementById("genericModal").style.display="none"; modalConfirmCallback=null; };
+    document.getElementById("modalConfirmBtn").onclick=()=>{ if(modalConfirmCallback) modalConfirmCallback(); document.getElementById("genericModal").style.display="none"; modalConfirmCallback=null; };
+
+    // ===================== INICIALIZAÇÃO =====================
+    document.addEventListener("DOMContentLoaded",()=>{
+        applyMoneyMask(document.getElementById("monthlyIncome"));
+        document.getElementById("btnLogin").addEventListener("click",login);
+        document.getElementById("logoutBtn").addEventListener("click",logout);
+        document.getElementById("prevMonthBtn").addEventListener("click",()=>changeMonth(-1));
+        document.getElementById("nextMonthBtn").addEventListener("click",()=>changeMonth(1));
+        document.getElementById("saveIncomeBtn").addEventListener("click",updateIncome);
+        document.getElementById("openAddAccountBtn").addEventListener("click",addNewAccount);
+        document.getElementById("settingsBtn").addEventListener("click",openSettings);
+        document.getElementById("syncFixasBtn").addEventListener("click", () => syncAndFixFixedAccounts());
+        document.getElementById("filterStatus").addEventListener("change",applyFilters);
+        document.getElementById("filterCategory").addEventListener("change",applyFilters);
+        document.getElementById("filterGroup").addEventListener("change",applyFilters);
+        document.getElementById("filterAccount").addEventListener("change",applyFilters);
+        document.getElementById("searchDesc").addEventListener("input",applyFilters);
+        document.getElementById("showCanceled").addEventListener("change",applyFilters);
+        document.getElementById("sortDueHeader").addEventListener("click",toggleSort);
+        setupForgotPassword();
+        loadRememberedUser();
+        if(sessionStorage.getItem("ds_finance_logged")==="true"){ document.getElementById("loginContainer").style.display="none"; document.getElementById("appContainer").style.display="block"; loadData(); refreshUI(); }
+        else{ document.getElementById("loginContainer").style.display="block"; document.getElementById("appContainer").style.display="none"; }
+    });
+</script>
+</body>
+</html>
