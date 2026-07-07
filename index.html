@@ -9,6 +9,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <!-- jsPDF para gerar PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
     <style>
         /* ESTILOS IGUAIS AO ANTERIOR (MANTIDOS) */
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
@@ -37,8 +40,23 @@
         .month-nav button { background: none; border: none; color: #cbd5e1; font-size: 1.2rem; cursor: pointer; transition: 0.2s; }
         .month-nav button:hover { color: white; }
         .month-year { font-weight: 600; font-size: 1.2rem; min-width: 140px; text-align: center; }
-        .header-actions { display: flex; gap: 12px; }
-        .icon-btn { background: #334155; border: none; width: 40px; height: 40px; border-radius: 40px; color: white; font-size: 1.1rem; cursor: pointer; transition: 0.2s; }
+        .header-actions { display: flex; gap: 12px; align-items: center; }
+        .icon-btn {
+            background: #334155;
+            border: none;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            color: white;
+            font-size: 1.2rem;
+            cursor: pointer;
+            transition: 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            flex-shrink: 0;
+        }
         .icon-btn:hover { background: #475569; }
         .sync-fixas-btn { background: #0f766e; border: none; padding: 0 16px; border-radius: 40px; color: white; font-weight: 500; cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 8px; }
         .sync-fixas-btn:hover { background: #0d5c56; }
@@ -89,10 +107,14 @@
         .action-icons i:hover { opacity: 0.7; }
         .readonly-msg { background: #f1f5f9; padding: 8px 20px; border-radius: 40px; font-size: 0.8rem; color: #475569; }
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; }
-        .modal-content { background: white; max-width: 500px; width: 90%; border-radius: 28px; padding: 28px; box-shadow: 0 25px 40px rgba(0,0,0,0.2); }
+        .modal-content { background: white; max-width: 500px; width: 90%; border-radius: 28px; padding: 28px; box-shadow: 0 25px 40px rgba(0,0,0,0.2); max-height: 90vh; overflow-y: auto; }
         .modal-content input, .modal-content select, .modal-content textarea { width: 100%; padding: 10px; margin: 8px 0 16px; border: 1px solid #ccc; border-radius: 16px; }
         .form-group { margin-bottom: 12px; }
+        .form-group label { font-weight: 500; display: block; margin-bottom: 4px; color: #334155; }
         .modal-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 20px; }
+        .btn-close-month { background: #8b5cf6; }
+        .btn-close-month:hover { background: #7c3aed; }
+        .btn-close-month:disabled { opacity: 0.5; cursor: not-allowed; }
         @media (max-width: 700px) {
             body { padding: 12px; }
             .dashboard-top { flex-direction: column; padding: 20px; }
@@ -131,7 +153,7 @@
         <div class="header-actions">
             <button id="syncFixasBtn" class="sync-fixas-btn"><i class="fas fa-sync-alt"></i> Fixar</button>
             <button id="settingsBtn" class="icon-btn"><i class="fas fa-cog"></i></button>
-            <button id="logoutBtn" class="icon-btn logout"><i class="fas fa-sign-out-alt"></i></button>
+            <button id="logoutBtn" class="icon-btn"><i class="fas fa-sign-out-alt"></i></button>
         </div>
     </header>
 
@@ -158,6 +180,7 @@
             <select id="filterAccount"><option value="all">Todas as contas</option></select>
             <input type="text" id="searchDesc" placeholder="Buscar por descrição...">
             <label class="toggle-canceled"><input type="checkbox" id="showCanceled"> Mostrar cancelados</label>
+            <button id="closeMonthBtn" class="btn-close-month" disabled><i class="fas fa-lock"></i> Fechar mês</button>
         </div>
         <button id="openAddAccountBtn" class="btn-add"><i class="fas fa-plus"></i> Nova conta</button>
     </div>
@@ -191,7 +214,22 @@
     function getMonthKey(year, month) { return `${year}-${String(month+1).padStart(2,'0')}`; }
     function saveFinanceData() { localStorage.setItem("ds_finance_data", JSON.stringify(financeData)); }
     function saveSettings() { localStorage.setItem("ds_finance_settings", JSON.stringify(settings)); }
-    
+
+    // Função para criar data local a partir de string YYYY-MM-DD
+    function parseLocalDate(dateStr) {
+        if (!dateStr) return null;
+        const [year, month, day] = dateStr.split('-').map(Number);
+        return new Date(year, month - 1, day);
+    }
+
+    // Função para formatar data local em YYYY-MM-DD
+    function formatLocalDate(date) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+
     // Função para corrigir contas antigas e forçar recorrência
     function syncAndFixFixedAccounts() {
         let corrigidas = 0, copiadas = 0;
@@ -227,7 +265,7 @@
                 const origDay = new Date(orig.vencimento).getDate();
                 let newDay = Math.min(origDay, new Date(currentYear, currentMonth+1, 0).getDate());
                 dueDate.setDate(newDay);
-                const newDueDate = dueDate.toISOString().slice(0,10);
+                const newDueDate = formatLocalDate(dueDate);
                 financeData[currentKey].accounts.push({
                     id: Date.now() + Math.random(),
                     conta: orig.conta, descricao: orig.descricao, categoria: orig.categoria, grupo: orig.grupo,
@@ -257,7 +295,7 @@
         updateAccountFilter();
         ensureFixedRecurrence();
     }
-    
+
     function updateCategoryFilter() {
         const catSelect = document.getElementById("filterCategory");
         if (!catSelect) return;
@@ -312,7 +350,7 @@
                 const origDay = new Date(orig.vencimento).getDate();
                 let newDay = Math.min(origDay, new Date(currentYear, currentMonth+1, 0).getDate());
                 dueDate.setDate(newDay);
-                const newDueDate = dueDate.toISOString().slice(0,10);
+                const newDueDate = formatLocalDate(dueDate);
                 financeData[currentKey].accounts.push({
                     id: Date.now() + Math.random(),
                     conta: orig.conta, descricao: orig.descricao, categoria: orig.categoria, grupo: orig.grupo,
@@ -330,34 +368,21 @@
         if (financeData[key]) {
             financeData[key].accounts.forEach(acc => {
                 if (acc.status !== "Pago" && acc.status !== "Cancelado") {
-                    const dueDate = new Date(acc.vencimento);
-                    if (dueDate < today) acc.status = "Atrasado";
-                    else if (acc.status === "Atrasado" && dueDate >= today) acc.status = "Pendente";
+                    const dueDate = parseLocalDate(acc.vencimento);
+                    if (dueDate && dueDate < today) acc.status = "Atrasado";
+                    else if (acc.status === "Atrasado" && dueDate && dueDate >= today) acc.status = "Pendente";
                 }
             });
             saveFinanceData();
         }
     }
+
+    // ===== LISTAGEM APENAS DO MÊS ATUAL (SEM CONTAS DE MESES ANTERIORES) =====
     function getDisplayAccounts() {
         const currentKey = getMonthKey(currentYear, currentMonth);
         const currentMonthData = financeData[currentKey] || { accounts: [] };
         let accounts = [...currentMonthData.accounts];
-        const currentDate = new Date(currentYear, currentMonth, 1);
-        for (let key in financeData) {
-            const [year, month] = key.split('-').map(Number);
-            const monthDate = new Date(year, month-1, 1);
-            if (monthDate < currentDate) {
-                const prevMonthData = financeData[key];
-                if (prevMonthData && prevMonthData.accounts) {
-                    prevMonthData.accounts.forEach(acc => {
-                        if (acc.status !== "Pago" && acc.status !== "Cancelado") {
-                            const copy = { ...acc, status: "Atrasado", readOnly: true };
-                            accounts.push(copy);
-                        }
-                    });
-                }
-            }
-        }
+
         let filtered = accounts.filter(acc => {
             if (!currentFilters.showCanceled && acc.status === "Cancelado") return false;
             if (currentFilters.status !== "all" && acc.status !== currentFilters.status) return false;
@@ -367,7 +392,11 @@
             if (currentFilters.search && !acc.descricao.toLowerCase().includes(currentFilters.search.toLowerCase())) return false;
             return true;
         });
-        filtered.sort((a,b) => { const da = new Date(a.vencimento), db = new Date(b.vencimento); return sortOrder === "asc" ? da - db : db - da; });
+        filtered.sort((a,b) => {
+            const da = parseLocalDate(a.vencimento);
+            const db = parseLocalDate(b.vencimento);
+            return sortOrder === "asc" ? da - db : db - da;
+        });
         return filtered;
     }
 
@@ -414,6 +443,103 @@
         document.getElementById("totalContasMes").innerHTML = `<i class="fas fa-credit-card"></i> Total a pagar no mês: ${formatMoney(total)}`;
     }
 
+    // ===================== FECHAMENTO DE MÊS =====================
+    function checkCloseMonthButton() {
+        const key = getMonthKey(currentYear, currentMonth);
+        const monthData = financeData[key] || { accounts: [] };
+        // Verifica se todas as contas (exceto canceladas) estão pagas
+        const naoPagas = monthData.accounts.filter(acc => acc.status !== "Cancelado" && acc.status !== "Pago");
+        const btn = document.getElementById("closeMonthBtn");
+        if (naoPagas.length === 0 && monthData.accounts.length > 0) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-check-circle"></i> Fechar mês';
+            btn.className = 'btn-close-month';
+        } else {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-lock"></i> Fechar mês';
+            btn.className = 'btn-close-month';
+        }
+    }
+
+    function generateMonthExtract() {
+        const key = getMonthKey(currentYear, currentMonth);
+        const monthData = financeData[key] || { accounts: [] };
+        const pagas = monthData.accounts.filter(acc => acc.status === "Pago");
+        if (pagas.length === 0) {
+            alert("Não há contas pagas neste mês para gerar extrato.");
+            return;
+        }
+        // Monta o conteúdo do extrato em HTML para exibir no modal
+        let rows = pagas.map(acc => `
+            <tr>
+                <td>${acc.conta}</td>
+                <td>${acc.descricao} ${acc.parcela ? `(${acc.parcela})` : ''}</td>
+                <td>${acc.categoria}</td>
+                <td>${formatMoney(acc.valorPago || acc.valor)}</td>
+                <td>${new Date(acc.vencimento).toLocaleDateString('pt-BR')}</td>
+            </tr>
+        `).join('');
+        const totalPago = pagas.reduce((sum, acc) => sum + (acc.valorPago || acc.valor), 0);
+        const html = `
+            <h4>Extrato de pagamentos - ${new Date(currentYear, currentMonth).toLocaleDateString('pt-BR', {month:'long', year:'numeric'})}</h4>
+            <table style="width:100%; border-collapse:collapse; margin:16px 0; font-size:0.85rem;">
+                <thead><tr style="background:#f1f5f9;"><th>Conta</th><th>Descrição</th><th>Categoria</th><th>Valor</th><th>Vencimento</th></tr></thead>
+                <tbody>${rows}</tbody>
+                <tfoot><tr><td colspan="3" style="text-align:right; font-weight:700;">Total</td><td colspan="2" style="font-weight:700;">${formatMoney(totalPago)}</td></tr></tfoot>
+            </table>
+            <div style="text-align:center; margin-top:12px;">
+                <button id="pdfExtractBtn" class="primary"><i class="fas fa-file-pdf"></i> Salvar PDF</button>
+            </div>
+        `;
+        // Abre modal com o extrato
+        openModal("Extrato do mês", html, () => {}); // sem ação de confirm
+        // Adiciona evento para gerar PDF
+        setTimeout(() => {
+            const pdfBtn = document.getElementById("pdfExtractBtn");
+            if (pdfBtn) {
+                pdfBtn.addEventListener('click', () => generatePDF(pagas, totalPago));
+            }
+        }, 100);
+    }
+
+    function generatePDF(pagas, totalPago) {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF('p', 'pt', 'a4');
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const margin = 40;
+        let y = 40;
+
+        // Título
+        doc.setFontSize(16);
+        doc.text('Extrato de Pagamentos', margin, y);
+        y += 20;
+        doc.setFontSize(12);
+        const mesAno = new Date(currentYear, currentMonth).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+        doc.text(`Mês: ${mesAno}`, margin, y);
+        y += 20;
+
+        // Tabela
+        const tableData = pagas.map(acc => [
+            acc.conta,
+            acc.descricao + (acc.parcela ? ` (${acc.parcela})` : ''),
+            acc.categoria,
+            formatMoney(acc.valorPago || acc.valor),
+            new Date(acc.vencimento).toLocaleDateString('pt-BR')
+        ]);
+        doc.autoTable({
+            head: [['Conta', 'Descrição', 'Categoria', 'Valor', 'Vencimento']],
+            body: tableData,
+            startY: y,
+            margin: { left: margin, right: margin },
+            theme: 'striped',
+            headStyles: { fillColor: [41, 128, 185], textColor: 255 },
+            foot: [['', '', '', 'Total', formatMoney(totalPago)]],
+            footStyles: { fillColor: [240, 240, 240], textColor: 0, fontStyle: 'bold' }
+        });
+
+        doc.save(`extrato_${currentYear}-${String(currentMonth+1).padStart(2,'0')}.pdf`);
+    }
+
     // ===================== RENDERIZAÇÃO TABELA =====================
     function renderTable() {
         const accounts = getDisplayAccounts();
@@ -450,11 +576,26 @@
                 else if(action === 'cancelar') handleCancel(acc);
             });
         });
+        checkCloseMonthButton();
     }
 
-    // ===================== AÇÕES (COM CORREÇÃO NA EXCLUSÃO) =====================
-    function handlePay(acc) { openModal("Pagar conta", `<div class="form-group"><label>Valor pago (R$)</label><input type="text" id="payValue" value="${formatMoney(acc.valor)}" class="money-input"></div>`, () => { let newValor = parseMoney(document.getElementById("payValue").value); if(!isNaN(newValor) && newValor>0){ updateAccountField(acc, {status:"Pago", valorPago:newValor}); refreshUI(); } else alert("Valor inválido"); }); }
-    function handlePostpone(acc) { openModal("Postergar conta", `<div class="form-group"><label>Nova data de vencimento</label><input type="date" id="newDueDate" value="${acc.vencimento}"></div>`, () => { let newDate = document.getElementById("newDueDate").value; if(newDate) updateAccountField(acc, {vencimento:newDate, status:"Postergado"}); refreshUI(); }); }
+    // ===================== AÇÕES =====================
+    function handlePay(acc) {
+        openModal("Pagar conta", `<div class="form-group"><label>Valor pago (R$)</label><input type="text" id="payValue" value="${formatMoney(acc.valor)}" class="money-input"></div>`, () => {
+            let newValor = parseMoney(document.getElementById("payValue").value);
+            if(!isNaN(newValor) && newValor>0){
+                updateAccountField(acc, {status:"Pago", valorPago:newValor});
+                refreshUI();
+            } else alert("Valor inválido");
+        });
+    }
+    function handlePostpone(acc) {
+        openModal("Postergar conta", `<div class="form-group"><label>Nova data de vencimento</label><input type="date" id="newDueDate" value="${acc.vencimento}"></div>`, () => {
+            let newDate = document.getElementById("newDueDate").value;
+            if(newDate) updateAccountField(acc, {vencimento:newDate, status:"Postergado"});
+            refreshUI();
+        });
+    }
     function handleEdit(acc) {
         const grupos = ["Essencial","Desejo","Investimento"];
         const groupsOpt = grupos.map(g=>`<option value="${g}" ${acc.grupo===g?'selected':''}>${g}</option>`).join('');
@@ -474,8 +615,7 @@
             refreshUI();
         });
     }
-    
-    // CORREÇÃO DA EXCLUSÃO: trata contas readOnly e busca por ID em todos os meses
+
     function handleDelete(acc) {
         if (acc.readOnly) {
             alert("Esta conta é de um mês anterior e está sendo exibida apenas para referência. Para excluí-la permanentemente, vá até o mês original onde ela foi lançada.");
@@ -500,11 +640,12 @@
             }
         }
     }
-    
+
     function handleCancel(acc) { if(confirm("Cancelar conta?")) updateAccountField(acc, {status:"Cancelado"}); refreshUI(); }
 
     function updateAccountField(acc, updates) {
-        const dueDate = new Date(acc.vencimento);
+        const dueDate = parseLocalDate(acc.vencimento);
+        if (!dueDate) return;
         const monthKey = getMonthKey(dueDate.getFullYear(), dueDate.getMonth());
         if (financeData[monthKey]) {
             const original = financeData[monthKey].accounts.find(a => a.id === acc.id);
@@ -518,7 +659,7 @@
         saveFinanceData();
     }
 
-    // ===================== ADICIONAR NOVA CONTA (SALVA NO MÊS DO VENCIMENTO) =====================
+    // ===================== ADICIONAR NOVA CONTA (COM PARCELADO AJUSTADO) =====================
     function addNewAccount() {
         if(isReadOnly){ alert("Mês passado não permite edição."); return; }
         const groupsOpt = ["Essencial","Desejo","Investimento"].map(g=>`<option value="${g}">${g}</option>`).join('');
@@ -530,47 +671,53 @@
             <div class="form-group"><label>Categoria</label><input id="newCategoria" list="catList"><datalist id="catList">${categoriesOpt}</datalist></div>
             <div class="form-group"><label>Grupo</label><select id="newGrupo">${groupsOpt}</select></div>
             <div class="form-group"><label>Vencimento</label><input type="date" id="newDueDate"></div>
-            <div class="form-group"><label>Valor (R$)</label><input type="text" id="newValor" class="money-input"></div>
             <div class="form-group"><label>Tipo</label><select id="newTipo"><option value="Fixo">Fixo</option><option value="Variável">Variável</option><option value="Parcelado">Parcelado</option></select></div>
-            <div id="parcelasDiv" style="display:none"><label>Nº Parcelas</label><input type="number" id="numParcelas" min="2" max="24" value="3"></div>
+            <div id="parcelasDiv" style="display:none;">
+                <div class="form-group"><label>Total da conta (R$)</label><input type="text" id="totalConta" class="money-input" value="R$ 0,00"></div>
+                <div class="form-group"><label>Nº Parcelas</label><input type="number" id="numParcelas" min="2" max="24" value="3"></div>
+                <div class="form-group"><label>Valor das parcelas (R$)</label><input type="text" id="valorParcelas" class="money-input" readonly style="background:#f1f5f9;"></div>
+            </div>
         `, () => {
             const conta = document.getElementById("newConta").value;
             const desc = document.getElementById("newDesc").value;
             const categoria = document.getElementById("newCategoria").value || "Geral";
             const grupo = document.getElementById("newGrupo").value;
             const vencimento = document.getElementById("newDueDate").value;
-            const valor = parseMoney(document.getElementById("newValor").value);
             const tipo = document.getElementById("newTipo").value;
-            if(!desc || !vencimento || isNaN(valor) || valor<=0) { alert("Preencha todos os campos."); return; }
-            
-            // Determinar o mês alvo baseado na data de vencimento
-            const dueDate = new Date(vencimento);
+            if(!desc || !vencimento) { alert("Preencha todos os campos."); return; }
+
+            const dueDate = parseLocalDate(vencimento);
+            if (!dueDate) { alert("Data inválida."); return; }
             const targetYear = dueDate.getFullYear();
             const targetMonth = dueDate.getMonth();
             const targetKey = getMonthKey(targetYear, targetMonth);
-            
+
             if (tipo === "Parcelado") {
+                const totalValor = parseMoney(document.getElementById("totalConta").value);
                 const numParcelas = parseInt(document.getElementById("numParcelas").value);
-                if (numParcelas > 1) {
-                    const valorParcela = valor / numParcelas;
-                    for (let i = 0; i < numParcelas; i++) {
-                        const parcelaDue = new Date(targetYear, targetMonth + i, dueDate.getDate());
-                        const parcelaYear = parcelaDue.getFullYear();
-                        const parcelaMonth = parcelaDue.getMonth();
-                        const parcelaKey = getMonthKey(parcelaYear, parcelaMonth);
-                        const parcelaStr = `${i+1}/${numParcelas}`;
-                        if (!financeData[parcelaKey]) financeData[parcelaKey] = { income: 0, accounts: [] };
-                        financeData[parcelaKey].accounts.push({
-                            id: Date.now() + Math.random() + i,
-                            conta, descricao: desc, categoria, grupo,
-                            vencimento: parcelaDue.toISOString().slice(0,10),
-                            valor: valorParcela, tipo, parcela: parcelaStr, status: "Pendente"
-                        });
-                    }
-                    saveFinanceData(); refreshUI(); return;
+                if (isNaN(totalValor) || totalValor <= 0) { alert("Informe o total da conta."); return; }
+                if (numParcelas < 2) { alert("Número de parcelas deve ser maior que 1."); return; }
+                const valorParcela = totalValor / numParcelas;
+                for (let i = 0; i < numParcelas; i++) {
+                    const parcelaDue = new Date(targetYear, targetMonth + i, dueDate.getDate());
+                    const parcelaYear = parcelaDue.getFullYear();
+                    const parcelaMonth = parcelaDue.getMonth();
+                    const parcelaKey = getMonthKey(parcelaYear, parcelaMonth);
+                    const parcelaStr = `${i+1}/${numParcelas}`;
+                    if (!financeData[parcelaKey]) financeData[parcelaKey] = { income: 0, accounts: [] };
+                    financeData[parcelaKey].accounts.push({
+                        id: Date.now() + Math.random() + i,
+                        conta, descricao: desc, categoria, grupo,
+                        vencimento: formatLocalDate(parcelaDue),
+                        valor: valorParcela, tipo, parcela: parcelaStr, status: "Pendente"
+                    });
                 }
+                saveFinanceData(); refreshUI(); return;
             }
-            // Conta simples (Fixo ou Variável): salva no mês do vencimento
+
+            // Conta simples
+            const valor = parseMoney(document.getElementById("newValor") ? document.getElementById("newValor").value : "0");
+            if (isNaN(valor) || valor <= 0) { alert("Informe o valor."); return; }
             if (!financeData[targetKey]) financeData[targetKey] = { income: 0, accounts: [] };
             financeData[targetKey].accounts.push({
                 id: Date.now(),
@@ -580,11 +727,69 @@
             saveFinanceData();
             refreshUI();
         });
+
+        // Lógica para mostrar/esconder campos de parcelado e calcular valor das parcelas
         const tipoSelect = document.getElementById("newTipo");
         const parcelasDiv = document.getElementById("parcelasDiv");
-        if(tipoSelect && parcelasDiv) tipoSelect.addEventListener('change', () => parcelasDiv.style.display = tipoSelect.value === "Parcelado" ? "block" : "none");
-        const valorInput = document.getElementById("newValor");
-        if(valorInput) applyMoneyMask(valorInput);
+        const totalContaInput = document.getElementById("totalConta");
+        const numParcelasInput = document.getElementById("numParcelas");
+        const valorParcelasInput = document.getElementById("valorParcelas");
+
+        function updateParcelasDiv() {
+            if (tipoSelect.value === "Parcelado") {
+                parcelasDiv.style.display = "block";
+                // Se existir o campo "newValor" (para contas simples), esconder
+                const newValorField = document.querySelector('#modalFields .form-group:has(#newValor)');
+                if (newValorField) newValorField.style.display = "none";
+                // Atualizar cálculo
+                calcularValorParcela();
+            } else {
+                parcelasDiv.style.display = "none";
+                const newValorField = document.querySelector('#modalFields .form-group:has(#newValor)');
+                if (newValorField) newValorField.style.display = "block";
+            }
+        }
+
+        function calcularValorParcela() {
+            if (totalContaInput && numParcelasInput && valorParcelasInput) {
+                const total = parseMoney(totalContaInput.value);
+                const parcelas = parseInt(numParcelasInput.value) || 1;
+                if (parcelas > 0 && total > 0) {
+                    valorParcelasInput.value = formatMoney(total / parcelas);
+                } else {
+                    valorParcelasInput.value = formatMoney(0);
+                }
+            }
+        }
+
+        if (tipoSelect) {
+            tipoSelect.addEventListener('change', updateParcelasDiv);
+        }
+        if (totalContaInput) {
+            applyMoneyMask(totalContaInput);
+            totalContaInput.addEventListener('input', calcularValorParcela);
+        }
+        if (numParcelasInput) {
+            numParcelasInput.addEventListener('input', calcularValorParcela);
+        }
+        // Inicializa
+        setTimeout(() => {
+            updateParcelasDiv();
+            // Adiciona campo de valor simples se não existir
+            const modalFields = document.getElementById("modalFields");
+            const hasValorSimple = modalFields.querySelector('#newValor');
+            if (!hasValorSimple) {
+                // Insere campo de valor simples após o vencimento
+                const dueGroup = modalFields.querySelector('.form-group:has(#newDueDate)');
+                if (dueGroup) {
+                    const valorSimple = document.createElement('div');
+                    valorSimple.className = 'form-group';
+                    valorSimple.innerHTML = `<label>Valor (R$)</label><input type="text" id="newValor" class="money-input">`;
+                    dueGroup.parentNode.insertBefore(valorSimple, dueGroup.nextSibling);
+                    applyMoneyMask(document.getElementById('newValor'));
+                }
+            }
+        }, 50);
     }
 
     // ===================== CONFIGURAÇÕES =====================
@@ -678,6 +883,7 @@
         document.getElementById("openAddAccountBtn").addEventListener("click",addNewAccount);
         document.getElementById("settingsBtn").addEventListener("click",openSettings);
         document.getElementById("syncFixasBtn").addEventListener("click", () => syncAndFixFixedAccounts());
+        document.getElementById("closeMonthBtn").addEventListener("click", generateMonthExtract);
         document.getElementById("filterStatus").addEventListener("change",applyFilters);
         document.getElementById("filterCategory").addEventListener("change",applyFilters);
         document.getElementById("filterGroup").addEventListener("change",applyFilters);
